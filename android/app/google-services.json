@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "767202478127",
+    "project_id": "maxframe-bc288",
+    "storage_bucket": "maxframe-bc288.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:767202478127:android:76365e3b41c76a1c0f1eda",
+        "android_client_info": {
+          "package_name": "com.example.maxframe"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBEN8ngrxGvmL6IurTFmJbRjU7gnUgfanQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
