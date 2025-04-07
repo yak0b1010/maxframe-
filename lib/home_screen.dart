@@ -1,8 +1,14 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:maxframe/wishlist_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'about_us_screen.dart';
 import 'auth_service.dart';
-
+import 'hot_screen.dart';
+import 'order_screen.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -11,64 +17,98 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final List<String> _wishlist = []; // List to store wishlist product names
   final List<String> _categories = ['laptops', 'pc', 'monitors', 'accessories'];
   String _selectedCategory = 'laptops';
+  final List<Map<String, dynamic>> _orders = [];
   final List<Map<String, dynamic>> _cart = [];
   int _cartCount = 0;
-
   @override
   Widget build(BuildContext context) {
     final isAdmin = Provider.of<AuthService>(context).isAdmin;
     return Scaffold(
-      backgroundColor: Color(0xFF1E1E1E), // dgray
+      backgroundColor: const Color(0xFF1E1E1E), // Dark gray background
+
       appBar: AppBar(
         title: Text(
-          'Welcome',
-          style: TextStyle(fontFamily: 'DGT', fontWeight: FontWeight.normal),
+          isAdmin ? 'Admin Panel' : 'Welcome',
+          style: const TextStyle(
+            fontFamily: 'DGT',
+            fontWeight: FontWeight.normal,
+            color: Colors.black, // Black text for contrast
+          ),
         ),
-        backgroundColor: Color.fromARGB(255, 255, 255, 255), // dgray
+        backgroundColor: Colors.lime, // Lime green background
+        centerTitle: true, // Center-align the title for better aesthetics
+        elevation: 4, // Add a subtle shadow for depth
+
         actions: [
           if (!isAdmin)
             Stack(
+              alignment: Alignment.center, // Align stack items properly
               children: [
                 IconButton(
                   icon: Image.asset('lib/image/cart.png'), // Updated cart icon
                   onPressed: _showCart,
+                  tooltip: 'View Cart', // Tooltip for accessibility
                 ),
                 if (_cartCount > 0)
                   Positioned(
-                    right: 8,
-                    top: 8,
+                    right: 6,
+                    top: 6,
                     child: Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(6), // Increased padding for visibility
                       decoration: BoxDecoration(
-                        color: Colors.green, // Changed red to green
-                        borderRadius: BorderRadius.circular(5),
+                        color: Colors.red, // Red background for urgency
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 4,
+                            offset: const Offset(2, 2), // Shadow for depth
+                          ),
+                        ],
                       ),
                       child: Text(
                         '$_cartCount',
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold, // Bold text for clarity
+                        ),
                       ),
                     ),
                   ),
               ],
             ),
+
+          if (!isAdmin)
+            IconButton(
+              icon: const Icon(Icons.person, color: Colors.black), // Profile icon
+              onPressed: () => Navigator.pushNamed(context, '/profile'),
+              tooltip: 'Profile', // Tooltip for accessibility
+            ),
+
           if (isAdmin)
             IconButton(
-              icon: const Icon(Icons.add, color: Colors.white),
+              icon: const Icon(Icons.add, color: Colors.black), // Add product icon
               onPressed: () => _showAddProductDialog(context),
+              tooltip: 'Add Product', // Tooltip for accessibility
             ),
+
           IconButton(
-            icon: const Icon(Icons.logout, color: Color(0xFF1E1E1E)),
+            icon: const Icon(Icons.logout, color: Colors.black), // Logout icon
             onPressed: () => _logout(context),
+            tooltip: 'Logout', // Tooltip for accessibility
           ),
         ],
       ),
+
       body: SingleChildScrollView(
         child: Column(
           children: [
             if (!isAdmin) _buildSlideCards(),
-            if (!isAdmin) SizedBox(height: 20),
+            if (!isAdmin) const SizedBox(height: 20),
             _buildCategoriesSection(),
             _buildProductList(), // Removed the `if (!isAdmin)` condition
           ],
@@ -76,26 +116,168 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
   Widget _buildSlideCards() {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.1826, // 176 / 956
-      width: MediaQuery.of(context).size.width * 0.8864, // 386 / 440
-      margin: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.width * 0.0364), // 16 / 440
-      child: PageView.builder(
-        itemCount: 3, // Example: 3 slides
-        itemBuilder: (context, index) {
-          return Container(
-            decoration: BoxDecoration(
-              color: const Color.fromARGB(255, 255, 255, 255),
-              borderRadius: BorderRadius.circular(20),
+    return Column(
+      children: [
+        // Big Slider (Store Logo + Map)
+        Container(
+          height: MediaQuery.of(context).size.height * 0.1826, // ~176px
+          width: MediaQuery.of(context).size.width * 0.8864, // ~386px
+          margin: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.width * 0.0364), // ~16px
+          child: PageView.builder(
+            itemCount: 2, // Store Logo + Map
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                // First slide: Store Logo
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AboutUsScreen()),
+                    );
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E1E1E),
+                      borderRadius: BorderRadius.circular(20),
+                      image: DecorationImage(
+                        image: AssetImage('lib/image/StoreLogo2.png'),
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                );
+              } else {
+                // Second slide: Store Location Map
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AboutUsScreen()),
+                    );
+                  },
+                  child: AbsorbPointer(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Color(0xFF1E1E1E),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20), // Match the container's border radius
+                        child: FlutterMap(
+                          options: MapOptions(
+                            center: LatLng(36.260229142538186, 6.688279598255074), // Replace with your store's coordinates
+                            zoom: 16.0,
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              subdomains: ['a', 'b', 'c'],
+                            ),
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  point: LatLng(36.260229142538186, 6.688279598255074), // Replace with your store's coordinates
+                                  child: const Icon(
+                                    Icons.location_on,
+                                    color: Colors.red,
+                                    size: 30,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+
+        // Small Carousel (Centered)
+        Center(
+          child: SizedBox(
+            height: 30, // Height of the small carousel
+            width: MediaQuery.of(context).size.width * 0.35, // Width of the carousel (25% of screen width)
+            child: PageView.builder(
+              itemCount: 4,
+              scrollDirection: Axis.horizontal,
+              itemBuilder: (context, index) {
+                final List<Map<String, dynamic>> carouselItems = [
+                  {
+                    'name': 'Hot',
+                    'widget': HotScreen(products: _products), // Replace with your HotScreen widget
+                  },
+                  {
+                    'name': 'Wishlist',
+                    'widget': WishlistScreen(wishlist: _wishlist), // Replace with your WishlistScreen widget
+                  },
+                  {
+                    'name': 'Orders',
+                    'widget': OrdersScreen(orders: _orders), // Pass the local orders list
+                  },
+                  {
+                    'name': 'About Us',
+                    'widget': AboutUsScreen(), // Replace with your AboutUsScreen widget
+                  },
+                ];
+
+                final item = carouselItems[index];
+                final screenWidth = MediaQuery.of(context).size.width;
+
+                return GestureDetector(
+                  onTap: () {
+                    // Navigate to the corresponding widget when clicked
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => item['widget']),
+                    );
+                  },
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Color(0xFF1E1E1E),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Colors.lime, // Lime-colored stroke
+                            width: 2, // Stroke width
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(2, 2),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            item['name'], // Name of the item
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.04, // Dynamic font size (4% of screen width)
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'DGT',
+                              color: Colors.lime,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
+          ),
+        ),
+      ],
     );
   }
-
   Widget _buildCategoriesSection() {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
@@ -244,6 +426,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final product = doc.data() as Map<String, dynamic>;
     final isAdmin = Provider.of<AuthService>(context, listen: false).isAdmin;
     final int quantity = product['quantity'] ?? 0;
+
+    // Check if the product is already in the wishlist
+    final bool isInWishlist = _wishlist.contains(product['name']);
+
     return Card(
       child: InkWell(
         onTap: () => _showProductDetails(product),
@@ -260,25 +446,51 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(product['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    product['name'],
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   Text('\$${product['price']}'),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      if (!isAdmin)
-                        IconButton(
-                          icon: const Icon(Icons.add_shopping_cart),
-                          onPressed: quantity > 0 ? () => _addToCart(product) : null,
+                      // Star Icon for Wishlist
+                      IconButton(
+                        icon: Icon(
+                          Icons.star,
+                          color: isInWishlist ? Colors.yellow : Colors.grey,
                         ),
-                      if (isAdmin)
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => _showEditProductDialog(doc.id, product),
-                        ),
-                      if (isAdmin)
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteProduct(doc.id),
-                        ),
+                        onPressed: () {
+                          setState(() {
+                            if (isInWishlist) {
+                              _wishlist.remove(product['name']); // Remove from wishlist
+                            } else {
+                              _wishlist.add(product['name']); // Add to wishlist
+                            }
+                          });
+                        },
+                      ),
+
+                      // Shopping Cart and Admin Buttons
+                      Row(
+                        children: [
+                          if (!isAdmin)
+                            IconButton(
+                              icon: const Icon(Icons.add_shopping_cart),
+                              onPressed: quantity > 0 ? () => _addToCart(product) : null,
+                            ),
+                          if (isAdmin)
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () => _showEditProductDialog(doc.id, product),
+                            ),
+                          if (isAdmin)
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _deleteProduct(doc.id),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                   if (quantity <= 0)
@@ -295,81 +507,212 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _addToCart(Map<String, dynamic> product) {
     setState(() {
-      _cart.add(product);
-      _cartCount++;
+      _cart.add(product); // Add the product to the cart
+      _cartCount++;       // Increment the cart count
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Added ${product['name']} to cart')),
     );
   }
-
+  void _updateCartCount(int newCount) {
+    setState(() {
+      _cartCount = newCount; // Update the cart count in the parent widget
+    });
+  }
   void _showCart() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Your Cart'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: _cart.length,
-            itemBuilder: (ctx, index) {
-              final product = _cart[index];
-              return ListTile(
-                leading: Image.network(
-                  product['images'][0],
-                  width: 50,
-                  height: 50,
-                  fit: BoxFit.cover,
-                ),
-                title: Text(product['name']),
-                subtitle: Text('\$${product['price']}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.remove_circle, color: Colors.red),
-                  onPressed: () => _removeFromCart(index),
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20), // Rounded corners for the dialog
+          ),
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Title Section
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        'Your Cart',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'DGT',
+                          color: Colors.black,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Divider(thickness: 1, color: Colors.grey[300]),
+
+                    // Empty Cart Message
+                    if (_cart.isEmpty)
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.shopping_cart, size: 64, color: Colors.grey),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Your cart is empty',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // Cart Items List
+                    if (_cart.isNotEmpty)
+                      SizedBox(
+                        width: double.maxFinite,
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          physics: NeverScrollableScrollPhysics(),
+                          itemCount: _cart.length,
+                          itemBuilder: (ctx, index) {
+                            final product = _cart[index];
+                            return ListTile(
+                              leading: CachedNetworkImage(
+                                imageUrl: product['images'][0],
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.cover,
+                              ),
+                              title: Text(product['name']),
+                              subtitle: Text('\$${product['price']}'),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.remove_circle, color: Colors.red),
+                                onPressed: () {
+                                  setState(() {
+                                    _cart.removeAt(index); // Remove the item locally
+                                  });
+                                  setState(() {
+                                    _cartCount--; // Update the local cart count
+                                  });
+                                  // Notify the parent widget of the change
+                                  _updateCartCount(_cartCount);
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+
+                    // Total Price Section
+                    if (_cart.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Total:',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'DGT',
+                                color: Colors.black,
+                              ),
+                            ),
+                            Text(
+                              '\$${_cart.fold(0.0, (sum, p) => sum + (p['price'] as double))}',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'DGT',
+                                color: Colors.black,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Divider(thickness: 1, color: Colors.grey[300]),
+
+                    // Action Buttons
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey[300],
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            ),
+                            child: const Text('Close'),
+                          ),
+                          if (_cart.isNotEmpty)
+                            ElevatedButton(
+                              onPressed: () => _fakeCheckout(context),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.lime,
+                                foregroundColor: Colors.black,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              ),
+                              child: const Text('Checkout'),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               );
             },
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-          TextButton(
-            onPressed: () => _fakeCheckout(context),
-            child: const Text('Checkout'),
-          ),
-        ],
-      ),
+        );
+      },
     );
-  }
-
-  void _removeFromCart(int index) {
-    setState(() {
-      _cart.removeAt(index);
-      _cartCount--;
-    });
   }
 
   void _fakeCheckout(BuildContext context) async {
     final user = Provider.of<AuthService>(context, listen: false).currentUser;
     if (user == null) return;
-    await FirebaseFirestore.instance.collection('orders').add({
-      'userId': user.uid,
-      'items': _cart.map((p) => p['name']).toList(),
-      'total': _cart.fold(0.0, (sum, p) => sum + (p['price'] as double)),
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-    setState(() {
-      _cart.clear();
-      _cartCount = 0;
-    });
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Order placed successfully!')),
-    );
+
+    try {
+      // Simulate a network delay for placing the order
+      await Future.delayed(const Duration(seconds: 1));
+
+      // Simulate adding the order to the local _orders list
+      final order = {
+        'userId': user.uid, // Simulated user ID
+        'items': _cart.map((p) => p['name']).toList(), // List of product names
+        'total': _cart.fold(0.0, (sum, p) => sum + (p['price'] as double)), // Total price
+        'timestamp': DateTime.now().toString(), // Simulated timestamp
+      };
+
+      // Add the order to the local _orders list
+      setState(() {
+        _orders.add(order); // Add the order to the list
+        _cart.clear(); // Clear the cart
+        _cartCount = 0; // Reset the cart count
+      });
+
+      // Close the cart dialog
+      Navigator.pop(context);
+
+      // Show a success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order placed successfully!')),
+      );
+    } catch (e) {
+      // Handle errors during checkout
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error placing order: ${e.toString()}')),
+      );
+    }
   }
 
   Future<void> _deleteProduct(String productId) async {
@@ -603,3 +946,5 @@ class _HomeScreenState extends State<HomeScreen> {
     Provider.of<AuthService>(context, listen: false).logout();
   }
 }
+
+List<Map<String, dynamic>> _products = [];

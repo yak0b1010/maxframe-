@@ -5,7 +5,6 @@ import 'auth_service.dart';
 import 'auth_wrapper.dart';
 import 'admin_screen.dart';
 import 'register_screen.dart'; // Import RegisterScreen
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
