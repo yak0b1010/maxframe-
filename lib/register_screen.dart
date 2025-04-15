@@ -42,9 +42,9 @@ class RegisterScreen extends StatelessWidget {
                 ),
               ),
               SizedBox(height: screenHeight * 0.1883), // 196 / 956
-              _buildInputField("Email", screenWidth, screenHeight, _emailController),
+              _buildInputField("Email", screenWidth, screenHeight, _emailController, false),
               SizedBox(height: screenHeight * 0.0502), // 48 / 956
-              _buildInputField("Password", screenWidth, screenHeight, _passwordController),
+              _buildInputField("Password", screenWidth, screenHeight, _passwordController, true),
               SizedBox(height: screenHeight * 0.2303), // 220 / 956
               _buildRegisterButton(context, screenWidth, screenHeight),
             ],
@@ -54,7 +54,7 @@ class RegisterScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInputField(String label, double screenWidth, double screenHeight, TextEditingController controller) {
+  Widget _buildInputField(String label, double screenWidth, double screenHeight, TextEditingController controller, bool obscureText) {
     return Container(
       width: screenWidth * 0.8477, // 373 / 440
       height: screenHeight * 0.0544, // 52 / 956
@@ -65,6 +65,7 @@ class RegisterScreen extends StatelessWidget {
       child: Center(
         child: TextField(
           controller: controller,
+          obscureText: obscureText, // Hide text if it's a password field
           style: TextStyle(
             fontSize: screenWidth * 0.0295, // 13 / 440
             fontWeight: FontWeight.normal,
@@ -126,16 +127,42 @@ class RegisterScreen extends StatelessWidget {
   }
 
   Future<void> _register(BuildContext context) async {
-    try {
-      await Provider.of<AuthService>(context, listen: false).signUp(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
+    String email = _emailController.text.trim();
+    String password = _passwordController.text.trim();
+
+    if (!_isValidEmail(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Invalid email address")),
       );
+      return;
+    }
+
+    if (!_isStrongPassword(password)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Password must be at least 8 characters long, contain a number, and an uppercase letter.")),
+      );
+      return;
+    }
+
+    try {
+      await Provider.of<AuthService>(context, listen: false).signUp(email, password);
       Navigator.pop(context); // Go back to the previous screen after registration
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
       );
     }
+  }
+
+  bool _isValidEmail(String email) {
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+com$');
+    return emailRegex.hasMatch(email);
+  }
+
+  bool _isStrongPassword(String password) {
+    if (password.length < 8) return false;
+    if (!password.contains(RegExp(r'[A-Z]'))) return false;
+    if (!password.contains(RegExp(r'[0-9]'))) return false;
+    return true;
   }
 }
