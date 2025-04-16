@@ -7,8 +7,10 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'about_us_screen.dart';
 import 'auth_service.dart';
+import 'card_screen.dart';
 import 'hot_screen.dart';
 import 'order_screen.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -19,6 +21,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final List<String> _wishlist = []; // List to store wishlist product names
   final List<String> _categories = ['laptops', 'pc', 'monitors', 'accessories'];
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
   String _selectedCategory = 'laptops';
   final List<Map<String, dynamic>> _orders = [];
   final List<Map<String, dynamic>> _cart = [];
@@ -84,9 +87,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
           if (!isAdmin)
             IconButton(
-              icon: const Icon(Icons.person, color: Colors.black), // Profile icon
-              onPressed: () => Navigator.pushNamed(context, '/profile'),
-              tooltip: 'Profile', // Tooltip for accessibility
+              icon: const Icon(Icons.payments_outlined, color: Colors.black),
+              onPressed: () => Navigator.pushNamed(context, '/card'),
+              tooltip: 'Card',
             ),
 
           if (isAdmin)
@@ -507,32 +510,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _addToCart(Map<String, dynamic> product) {
     setState(() {
-      _cart.add(product); // Add the product to the cart
-      _cartCount++;       // Increment the cart count
+      final existingProductIndex = _cart.indexWhere((item) => item['id'] == product['id']);
+      if (existingProductIndex != -1) {
+        // If the product already exists, increment its quantity
+        _cart[existingProductIndex]['quantity'] += 1;
+      } else {
+        // Otherwise, add the product to the cart with an initial quantity of 1
+        _cart.add({
+          ...product,
+          'quantity': 1, // Add the quantity field
+        });
+      }
+      _cartCount++; // Increment the total cart count
+
     });
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Added ${product['name']} to cart')),
     );
   }
-  void _updateCartCount(int newCount) {
+  void _updateCartCount() {
     setState(() {
-      _cartCount = newCount; // Update the cart count in the parent widget
+      _cartCount = _cart.fold(0, (sum, product) => sum + (product['quantity'] as int));
     });
   }
+
   void _showCart() {
     showDialog(
       context: context,
       builder: (context) {
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20), // Rounded corners for the dialog
+            borderRadius: BorderRadius.circular(20),
           ),
           child: StatefulBuilder(
             builder: (context, setState) {
               return SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     // Title Section
                     Padding(
@@ -545,7 +560,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           fontFamily: 'DGT',
                           color: Colors.black,
                         ),
-                        textAlign: TextAlign.center,
                       ),
                     ),
                     Divider(thickness: 1, color: Colors.grey[300]),
@@ -585,18 +599,42 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               title: Text(product['name']),
                               subtitle: Text('\$${product['price']}'),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.remove_circle, color: Colors.red),
-                                onPressed: () {
-                                  setState(() {
-                                    _cart.removeAt(index); // Remove the item locally
-                                  });
-                                  setState(() {
-                                    _cartCount--; // Update the local cart count
-                                  });
-                                  // Notify the parent widget of the change
-                                  _updateCartCount(_cartCount);
-                                },
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.remove_circle, color: Colors.red),
+                                    onPressed: () {
+                                      setState(() {
+                                        if (product['quantity'] > 1) {
+                                          product['quantity'] -= 1;
+                                        } else {
+                                          _cart.removeAt(index);
+                                        }
+                                        _updateCartCount();
+                                      });
+                                    },
+                                    onLongPress: () {
+                                      setState(() {
+                                        _cart.removeAt(index);
+                                        _updateCartCount();
+                                      });
+                                    },
+                                  ),
+                                  Text(
+                                    '${product['quantity']}',
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.add_circle, color: Colors.green),
+                                    onPressed: () {
+                                      setState(() {
+                                        product['quantity'] += 1;
+                                        _updateCartCount();
+                                      });
+                                    },
+                                  ),
+                                ],
                               ),
                             );
                           },
@@ -620,7 +658,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             Text(
-                              '\$${_cart.fold(0.0, (sum, p) => sum + (p['price'] as double))}',
+                              '\$${_cart.fold(0.0, (sum, p) => sum + (p['price'] as double) * (p['quantity'] as int))}',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -651,6 +689,19 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             child: const Text('Close'),
                           ),
+                          IconButton(
+                            onPressed: () {
+                              setState(() {
+                                _cart.clear(); // Clear the cart
+                                _updateCartCount(); // Reset the cart count
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Cart cleared successfully')),
+                              );
+                            },
+                            icon: const Icon(Icons.playlist_remove_sharp, color: Colors.red, size: 30), // clrscr icon
+                            tooltip: 'Clear Cart', // Tooltip for accessibility
+                          ),
                           if (_cart.isNotEmpty)
                             ElevatedButton(
                               onPressed: () => _fakeCheckout(context),
@@ -677,43 +728,72 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+
+
   void _fakeCheckout(BuildContext context) async {
     final user = Provider.of<AuthService>(context, listen: false).currentUser;
     if (user == null) return;
 
     try {
-      // Simulate a network delay for placing the order
-      await Future.delayed(const Duration(seconds: 1));
+      // Check if payment info is saved in Firestore
+      final paymentInfo = await FirebaseFirestore.instance
+          .collection('userPaymentInfo')
+          .doc(user.uid)
+          .get();
 
-      // Simulate adding the order to the local _orders list
-      final order = {
-        'userId': user.uid, // Simulated user ID
-        'items': _cart.map((p) => p['name']).toList(), // List of product names
-        'total': _cart.fold(0.0, (sum, p) => sum + (p['price'] as double)), // Total price
-        'timestamp': DateTime.now().toString(), // Simulated timestamp
-      };
+      if (!paymentInfo.exists) {
+        // If no payment info exists, navigate to the PaymentScreen
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const PaymentScreen()),
+        );
+        return; // Stop further execution until payment info is provided
+      }
 
-      // Add the order to the local _orders list
+      // Proceed with checkout if payment info exists
+      await FirebaseFirestore.instance.collection('orders').add({
+        'userId': user.uid,
+        'items': _cart.map((p) => {
+          'name': p['name'],
+          'quantity': p['quantity'], // Include the quantity
+          'price': p['price'],
+        }).toList(),
+        'total': _cart.fold(
+          0.0,
+              (sum, p) => sum + (p['price'] as double) * (p['quantity'] as int),
+        ),
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
       setState(() {
-        _orders.add(order); // Add the order to the list
         _cart.clear(); // Clear the cart
         _cartCount = 0; // Reset the cart count
       });
 
-      // Close the cart dialog
-      Navigator.pop(context);
-
-      // Show a success message
+      Navigator.pop(context); // Close the cart dialog
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Order placed successfully!')),
       );
     } catch (e) {
-      // Handle errors during checkout
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error placing order: ${e.toString()}')),
-      );
+      // Handle Firestore permission errors
+      if (e.toString().contains('permission')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You do not have permission to place an order. Redirecting to payment info...')),
+        );
+
+        // Redirect to the PaymentScreen
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const PaymentScreen()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error placing order: ${e.toString()}')),
+        );
+      }
     }
   }
+
 
   Future<void> _deleteProduct(String productId) async {
     try {
@@ -852,6 +932,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
 
   void _showEditProductDialog(String productId, Map<String, dynamic> product) {
     final TextEditingController _nameController = TextEditingController(text: product['name']);

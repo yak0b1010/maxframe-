@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import 'auth_wrapper.dart';
 import 'admin_screen.dart';
+import 'card_screen.dart';
 import 'register_screen.dart'; // Import RegisterScreen
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +36,7 @@ class MyApp extends StatelessWidget {
         routes: {
           '/admin': (context) => const AdminScreen(),
           '/register': (context) =>  RegisterScreen(), // Add this line
+          '/card': (context) => PaymentScreen(),
         },
       ),
     );

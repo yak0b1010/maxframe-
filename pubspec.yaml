@@ -35,7 +35,8 @@ dependencies:
   cloud_firestore: ^4.9.1
   provider: ^6.1.1
   cached_network_image: ^3.3.0
-  fluttertoast: ^8.2.2 # For error messages   
+  fluttertoast: ^8.2.2 # For error messages
+  flutter_secure_storage: ^8.0.0
      # For error messages (optional)
 
   # The following adds the Cupertino Icons font to your application.
